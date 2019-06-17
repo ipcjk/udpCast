@@ -11,7 +11,7 @@ import (
 
 /* structure we use for copying the incoming stream */
 type transmit struct {
-	data [1518]byte
+	data [1560]byte
 	len  int
 }
 
@@ -77,9 +77,9 @@ func main() {
 	/* create new slices of receiver channels, maximum 10 */
 	set := make([]chan transmit, 0)
 
-	/* listener */
-	lAddr := flag.String("ia", "", "listening address")
-	lPort := flag.Int("ip", 2009, "listening port")
+	/* listener for incoming */
+	incomingAddr := flag.String("ia", "", "listening address")
+	incomingPort := flag.Int("ip", 2009, "listening port")
 	sDestinations := flag.String("dest", "127.0.0.1:2010,127.0.0.1:2011", "destinations, comma seperated")
 
 	/* parse arguments */
@@ -94,6 +94,13 @@ func main() {
 		/* create  and startup new destinations */
 		singleClient := strings.Split(clients[i], ":")
 
+		/* check if we got a host and a port entry */
+		if len(singleClient) < 2 {
+			log.Println("Cant parse client ", singleClient)
+			continue
+		}
+
+		/* parse to Int for later usage inside newUdpDest */
 		port, err := strconv.Atoi(singleClient[1])
 		if err != nil {
 			log.Fatalf("Cant parse client %s", singleClient)
@@ -113,7 +120,7 @@ func main() {
 	}
 
 	/* create server listener */
-	sAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", *lAddr, *lPort))
+	sAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", *incomingAddr, *incomingPort))
 	if err != nil {
 		log.Fatalf("cant resolve endpoint: %s", err)
 	}
@@ -131,19 +138,19 @@ func main() {
 			select {
 			case toTransmit := <-reader:
 				{
-					go func(toTransmit transmit) {
-						for _, v := range set {
-							v <- toTransmit
-						}
-					}(toTransmit)
+					for _, v := range set {
+						v <- toTransmit
+					}
 				}
 			}
 		}
 	}(set)
 
+	/* listener goroutine */
 	func(s *net.UDPConn) {
-		buffer := [1518]byte{}
+		buffer := [1560]byte{}
 		for {
+
 			/* read from source */
 			n, err := s.Read(buffer[0:])
 			if err != nil {
