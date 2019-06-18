@@ -61,7 +61,7 @@ func newUdpDest(oAddr string, oPort int) udpDest {
 	}
 
 	/* new buffered channel for receiving data */
-	udp.queue = make(chan transmit, 1000)
+	udp.queue = make(chan transmit, 128)
 
 	/* return our freshly created udp object */
 	return udp
