@@ -1,4 +1,4 @@
-// +build !perf
+// +build perf
 
 package main
 
@@ -45,7 +45,7 @@ func main() {
 		/* split host and port part for new destinations */
 		singleClient := strings.Split(clients[i], ":")
 
-		/* resolve client endpoint */
+		/* client with queue and endpoint */
 		daddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%s", singleClient[0], singleClient[1]))
 
 		/* check for any error condition in creating udp endpoint */
@@ -57,7 +57,7 @@ func main() {
 		set = append(set, daddr)
 
 		/* happy printing out message */
-		fmt.Printf("Created destination %s:%s\n", singleClient[0], singleClient[1])
+		fmt.Printf("Created destination for perf version %s:%s\n", singleClient[0], singleClient[1])
 
 	}
 
@@ -79,10 +79,7 @@ func main() {
 		for {
 
 			/* read from source */
-			n, err := s.Read(buffer[0:])
-			if err != nil {
-				log.Println(err)
-			}
+			n, _ := s.Read(buffer[0:])
 
 			/* write to destinations */
 			for _, v := range set {
