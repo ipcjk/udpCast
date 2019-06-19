@@ -1,5 +1,3 @@
-// +build !perf
-
 package main
 
 import (
@@ -7,11 +5,15 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"strings"
 )
 
 /* udpCast is cloning incoming udp packets to multiple destinations, focus on easy and fast packet dumping
  */
+
+/* fixed packetSize for better results for optimizer */
+const packetSize = 1520
 
 /* loveley main function */
 func main() {
@@ -99,5 +101,7 @@ func main() {
 			}
 		}
 	}(s)
+
+	os.Exit(0)
 
 }
