@@ -81,7 +81,7 @@ func main() {
 			/* read from source */
 			n, _ := s.Read(buffer[0:])
 
-			/* write to destinations */
+			/* write to targets */
 			for _, v := range set {
 				conn.WriteTo(buffer[0:n], v)
 			}

@@ -6,6 +6,3 @@ env GOOS=linux GOARCH=amd64 go build -tags perf -ldflags="-s -w" -o udpCast_perf
 upx --force udpCast.linux
 upx --force udpCast_perf.linux
 
-
-
-

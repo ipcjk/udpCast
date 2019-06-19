@@ -19,16 +19,22 @@ func main() {
 	var err error
 
 	/* create new slice of receiver udpaddrs, maximum 3 */
-	set := make([]*net.UDPAddr, maxDestination)
+	set := make([]*net.UDPAddr, 0)
 
 	/* listener for incoming */
 	incomingAddr := flag.String("ia", "", "listening address")
 	incomingPort := flag.Int("ip", 2009, "listening port")
 	sDestinations := flag.String("dest", "127.0.0.1:2010", "destinations, comma seperated")
-	localEndPointPort := flag.Int("lp", 12345, "local source port for outgoing packets")
+	outPort := flag.Int("lp", 12345, "local source port for outgoing packets")
+	outAddr := flag.String("la", "", "local source address for outgoing packets")
 
-	/* sender endpoint generation for outgoing packets */
-	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: *localEndPointPort})
+	/* source generation for outgoing packets */
+	sAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", *outAddr, *outPort))
+	if err != nil {
+		log.Fatalf("cant resolve endpoint: %s", err)
+	}
+
+	conn, err := net.ListenUDP("udp", sAddr)
 	if err != nil {
 		log.Fatal("Listen", err)
 	}
@@ -62,13 +68,13 @@ func main() {
 	}
 
 	/* create server listener */
-	sAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", *incomingAddr, *incomingPort))
+	iAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", *incomingAddr, *incomingPort))
 	if err != nil {
 		log.Fatalf("cant resolve endpoint: %s", err)
 	}
 
 	/* start listening socket for incoming connection */
-	s, err := net.ListenUDP("udp", sAddr)
+	s, err := net.ListenUDP("udp", iAddr)
 	if err != nil {
 		log.Fatalf("cant listen endpoint: %s", err)
 	}
@@ -86,7 +92,10 @@ func main() {
 
 			/* write to destinations */
 			for _, v := range set {
-				conn.WriteTo(buffer[0:n], v)
+				_, err = conn.WriteTo(buffer[0:n], v)
+				if err != nil {
+					log.Println(err)
+				}
 			}
 		}
 	}(s)
