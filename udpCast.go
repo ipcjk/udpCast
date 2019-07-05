@@ -6,7 +6,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 )
 
 /* udpCast is cloning incoming udp packets to multiple destinations, focus on easy and fast packet dumping
@@ -20,6 +22,10 @@ func main() {
 	/* some local variables */
 	var err error
 
+	/* signal channel */
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM&syscall.SIGINT)
+
 	/* create new slice of receiver udpaddrs, maximum 3 */
 	set := make([]*net.UDPAddr, 0)
 
@@ -27,22 +33,30 @@ func main() {
 	incomingAddr := flag.String("ia", "", "listening address")
 	incomingPort := flag.Int("ip", 2009, "listening port")
 	sDestinations := flag.String("dest", "127.0.0.1:2010", "destinations, comma seperated")
-	outPort := flag.Int("lp", 12345, "local source port for outgoing packets")
-	outAddr := flag.String("la", "", "local source address for outgoing packets")
+	ttl := flag.Int("ttl", 24, "time to live for IP packets")
 
-	/* source generation for outgoing packets */
-	sAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", *outAddr, *outPort))
-	if err != nil {
-		log.Fatalf("cant resolve endpoint: %s", err)
-	}
+	/* parse arguments */
+	flag.Parse()
 
-	conn, err := net.ListenUDP("udp", sAddr)
+	conn, err := net.ListenUDP("udp", nil)
 	if err != nil {
 		log.Fatal("Listen", err)
 	}
 
-	/* parse arguments */
-	flag.Parse()
+	/* set ttl */
+	f, err := conn.File()
+	if err != nil {
+		log.Fatal("File descriptor", err)
+	}
+
+	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_TTL, ttl)
+	if err != nil {
+		log.Fatal("Change ttl", err)
+	}
+	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MULTICAST_TTL, ttl)
+	if err != nil {
+		log.Fatal("Change ttl", err)
+	}
 
 	/* split input into clients */
 	clients := strings.Split(*sDestinations, ",")
@@ -99,6 +113,7 @@ func main() {
 					log.Println(err)
 				}
 			}
+
 		}
 	}(s)
 
