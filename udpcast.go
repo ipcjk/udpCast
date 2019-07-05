@@ -11,7 +11,7 @@ import (
 	"syscall"
 )
 
-/* udpCast is cloning incoming udp packets to multiple destinations, focus on easy and fast packet dumping
+/* udpcast is cloning incoming udp packets to multiple destinations, focus on easy and fast packet dumping
  */
 
 /* fixed packetSize for better results for optimizer */
@@ -49,11 +49,13 @@ func main() {
 		log.Fatal("File descriptor", err)
 	}
 
-	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_TTL, ttl)
+	/* if its normal outbound */
+	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_TTL, *ttl)
 	if err != nil {
 		log.Fatal("Change ttl", err)
 	}
-	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MULTICAST_TTL, ttl)
+	/* if its multicast */
+	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MULTICAST_TTL, *ttl)
 	if err != nil {
 		log.Fatal("Change ttl", err)
 	}
