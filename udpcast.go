@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"golang.org/x/net/ipv4"
 	"log"
 	"net"
 	"os"
-	"os/signal"
 	"strings"
 	"syscall"
 )
@@ -23,8 +23,8 @@ func main() {
 	var err error
 
 	/* signal channel */
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM&syscall.SIGINT)
+	//sigs := make(chan os.Signal, 1)
+	//signal.Notify(sigs, os.Interrupt, syscall.SIGTERM&syscall.SIGINT)
 
 	/* create new slice of receiver udpaddrs, maximum 3 */
 	set := make([]*net.UDPAddr, 0)
@@ -32,8 +32,11 @@ func main() {
 	/* listener for incoming */
 	incomingAddr := flag.String("ia", "", "listening address")
 	incomingPort := flag.Int("ip", 2009, "listening port")
+	interfaceName := flag.String("i", "", "interface name to receive e.g. multicast")
+	ssm := flag.String("ssm", "", "source specific multicast")
 	sDestinations := flag.String("dest", "127.0.0.1:2010", "destinations, comma seperated")
 	ttl := flag.Int("ttl", 24, "time to live for IP packets")
+	debug := flag.Bool("debug", false, "print incoming packet loop counter")
 
 	/* parse arguments */
 	flag.Parse()
@@ -52,12 +55,12 @@ func main() {
 	/* if its normal outbound */
 	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_TTL, *ttl)
 	if err != nil {
-		log.Fatal("Change ttl", err)
+		log.Println("Change ttl for unicast", err)
 	}
 	/* if its multicast */
 	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MULTICAST_TTL, *ttl)
 	if err != nil {
-		log.Fatal("Change ttl", err)
+		log.Println("Change ttl for multicast", err)
 	}
 
 	/* split input into clients */
@@ -81,7 +84,9 @@ func main() {
 		set = append(set, daddr)
 
 		/* happy printing out message */
-		fmt.Printf("Created destination %s:%s\n", singleClient[0], singleClient[1])
+		if *debug {
+			fmt.Printf("Created destination %s:%s\n", singleClient[0], singleClient[1])
+		}
 
 	}
 
@@ -97,10 +102,51 @@ func main() {
 		log.Fatalf("cant listen endpoint: %s", err)
 	}
 
+	/* if source is multicast, join a group */
+	if iAddr.IP.IsMulticast() || iAddr.IP.IsLinkLocalMulticast() {
+		if *interfaceName == "" {
+			log.Fatal("Source is multicast, but interface name was not given, please correct")
+			os.Exit(1)
+		}
+		iface, err := net.InterfaceByName(*interfaceName)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		p := ipv4.NewPacketConn(s)
+
+		if *ssm != "" {
+			ssmAddress, err := net.ResolveUDPAddr("udp", *ssm)
+			if err != nil {
+				log.Fatal(ssmAddress, err)
+			}
+			if *debug {
+				fmt.Println("Joing SSM", *ssm, "on", iAddr)
+			}
+			err = p.JoinSourceSpecificGroup(iface, iAddr, ssmAddress)
+		} else {
+			err = p.JoinGroup(iface, iAddr)
+		}
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+	}
+
+	/* Fixme, don't ignore the p channel where multicast information is flooded */
+
+	var packetCounter int64 = 1000
 	/* listener goroutine */
 	func(s *net.UDPConn) {
+
 		buffer := [packetSize]byte{}
 		for {
+			if *debug {
+				packetCounter++
+				if packetCounter%1000 == 0 {
+				}
+			}
 
 			/* read from source */
 			n, err := s.Read(buffer[0:])
